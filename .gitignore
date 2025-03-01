@@ -1,0 +1,19 @@
+# Virtual environment
+market_maker_env/
+
+# Environment variables
+.env
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local data files (if any)
+*.csv
+*.db
+
+# macOS files
+.DS_Store
