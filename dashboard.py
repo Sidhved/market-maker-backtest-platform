@@ -6,6 +6,7 @@ import numpy as np
 import random
 from data_retrieval import get_cached_data
 import os
+from supabase import create_client, Client
 from statsmodels.tsa.arima.model import ARIMA
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
@@ -242,7 +243,18 @@ app = Dash(__name__)
 server = app.server  # For Heroku deployment (to be updated later for new hosting)
 
 # Load data
-df = get_cached_data(use_cleaned=True)
+
+supabase_url = os.getenv("SUPABASE_HOST_URL")
+supabase_key = os.getenv("SUPABASE_ANON_API_KEY")
+
+# Initialize Supabase client
+supabase: Client = create_client(supabase_url, supabase_key)
+
+response = supabase.table("tick_data_cleaned").select("*").execute()
+df = pd.DataFrame(response.data)
+if df.empty:
+    raise ValueError("No data found in tick_data_cleaned table")
+df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 # List of instruments (determined from data)
 instruments = sorted(df["instrument"].unique())  # ['AAPL', 'AMZN', 'GOOG', 'META', 'MSFT']
