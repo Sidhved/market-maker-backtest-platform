@@ -10,8 +10,8 @@ load_dotenv()
 redis_host = os.getenv("REDIS_HOST", "localhost")
 redis_port = int(os.getenv("REDIS_PORT", 6379))
 redis_password = os.getenv("REDIS_PASSWORD", None)
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_KEY")
+supabase_url = os.getenv("SUPABASE_HOST_URL")
+supabase_key = os.getenv("SUPABASE_ANON_API_KEY")
 
 # Initialize Redis client
 redis_client = redis.Redis(
