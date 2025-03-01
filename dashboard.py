@@ -1,10 +1,10 @@
+# dashboard.py
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output, State  # Explicitly import Dash's Input and Output
 import plotly.express as px
 import pandas as pd
 import numpy as np
 import random
-from data_retrieval import get_cached_data
 import os
 from supabase import create_client, Client
 from statsmodels.tsa.arima.model import ARIMA
@@ -240,16 +240,16 @@ def simulate_trades(df, base_spread, forecast):
 
 # Initialize the Dash app
 app = Dash(__name__)
-server = app.server  # For Heroku deployment (to be updated later for new hosting)
+server = app.server  # For deployment
 
 # Load data
-
 supabase_url = os.getenv("SUPABASE_HOST_URL")
 supabase_key = os.getenv("SUPABASE_ANON_API_KEY")
 
 # Initialize Supabase client
 supabase: Client = create_client(supabase_url, supabase_key)
 
+# Fetch all data from tick_data_cleaned
 response = supabase.table("tick_data_cleaned").select("*").execute()
 df = pd.DataFrame(response.data)
 if df.empty:
@@ -257,12 +257,20 @@ if df.empty:
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 # List of instruments (determined from data)
-instruments = sorted(df["instrument"].unique())  # ['AAPL', 'AMZN', 'GOOG', 'META', 'MSFT']
+# Use a separate query to ensure we get all unique instruments
+response = supabase.table("tick_data_cleaned").select("instrument").execute()
+instruments_df = pd.DataFrame(response.data)
+if instruments_df.empty:
+    raise ValueError("No instruments found in tick_data_cleaned table")
+instruments = sorted(instruments_df["instrument"].unique())  # Should contain ['AAPL', 'AMZN', 'GOOG', 'META', 'MSFT']
 
-# Precompute forecasts for all instruments
+# Debug: Print the instruments to confirm
+print("Instruments fetched for dropdown:", instruments)
+
+# Precompute forecasts for all instruments (using all 100 points per instrument)
 for instrument in instruments:
-    df_filtered = df[df["instrument"] == instrument].tail(1000).copy()
-    df_subset = df_filtered.tail(1000)  # Reduced to 1000 rows for faster computation
+    df_filtered = df[df["instrument"] == instrument].tail(100).copy()  # Use all 100 points for forecasting
+    df_subset = df_filtered.tail(100)  # Ensure we use the available data
     
     # ARIMA forecast
     arima_pred = arima_forecast(df_subset, steps=10)
@@ -280,7 +288,7 @@ for instrument in instruments:
 # Initial simulation with default instrument (AAPL)
 initial_instrument = "AAPL"
 initial_spread = 0.0005
-df_filtered = df[df["instrument"] == initial_instrument].tail(1000).copy()
+df_filtered = df[df["instrument"] == initial_instrument].tail(50).copy()  # Use 50 points for initial display to keep chart clean
 
 # Get initial forecasts from cache
 arima_forecast_df = forecast_cache["ARIMA"][initial_instrument]
@@ -337,7 +345,7 @@ app.layout = html.Div(
         # Introduction Section
         html.H1("Market Maker Dashboard", style={"textAlign": "center"}),
         html.P(
-            "This dashboard simulates a market making strategy for algorithmic trading. Select an instrument to view its price movements, forecasted prices, and the market maker's profit and loss (P&L) over time. Adjust the base spread to see how it affects trading.",
+            "This dashboard simulates a market making strategy for algorithmic trading. Select an instrument to view its price movements, forecasted prices, and the market maker's profit and loss (P&L) over time. Adjust the base spread to see how it affects trading behavior.",
             style={"textAlign": "center", "fontStyle": "italic", "fontSize": "16px", "marginBottom": "20px"}
         ),
 
@@ -372,7 +380,7 @@ app.layout = html.Div(
         # Price Chart
         html.H4("Price Chart", style={"fontSize": "16px", "fontWeight": "bold"}),
         html.P(
-            "Shows the mid-price (blue) over the last 1,000 timestamps, trades executed by the market maker (green for buys, red for sells), and forecasted bid prices for the next 10 minutes using ARIMA (gold) and LSTM (purple) models.",
+            "Shows the mid-price (blue) over the last 50 timestamps, trades executed by the market maker (green for buys, red for sells), and forecasted bid prices for the next 10 minutes using ARIMA (gold) and LSTM (purple) models.",
             style={"fontStyle": "italic", "fontSize": "14px", "marginBottom": "10px"}
         ),
         dcc.Graph(id="price-chart", figure=fig_price),
@@ -409,7 +417,6 @@ app.layout = html.Div(
         ),
 
         # Links Section
-        html.H4("Additional Resources", style={"fontSize": "16px", "fontWeight": "bold", "marginTop": "20px"}),
         html.Div([
             # GitHub Link
             html.A(
@@ -568,7 +575,7 @@ def update_charts(spread, selected_instrument):
     tuple: Updated figures and metrics.
     """
     # Filter data for the selected instrument
-    df_filtered = df[df["instrument"] == selected_instrument].tail(1000).copy()
+    df_filtered = df[df["instrument"] == selected_instrument].tail(50).copy()  # Use 50 points for display to keep chart clean
     
     # Get forecasts from cache
     arima_forecast_df = forecast_cache["ARIMA"][selected_instrument]
