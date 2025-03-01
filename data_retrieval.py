@@ -10,16 +10,19 @@ load_dotenv()
 redis_host = os.getenv("REDIS_HOST", "localhost")
 redis_port = int(os.getenv("REDIS_PORT", 6379))
 redis_password = os.getenv("REDIS_PASSWORD", None)
-supabase_url = os.getenv("SUPABASE_HOST_URL")
-supabase_key = os.getenv("SUPABASE_ANON_API_KEY")
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
 
 # Initialize Redis client
-redis_client = redis.Redis(
-    host=redis_host,
-    port=redis_port,
-    password=redis_password,
-    decode_responses=True
-)
+# Only include the password parameter if a password is provided
+redis_params = {
+    "host": redis_host,
+    "port": redis_port,
+    "decode_responses": True
+}
+if redis_password and redis_password != "none":
+    redis_params["password"] = redis_password
+redis_client = redis.Redis(**redis_params)
 
 # Initialize Supabase client
 supabase: Client = create_client(supabase_url, supabase_key)
